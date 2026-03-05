@@ -392,32 +392,48 @@ function speak(text) {
 function stopSpeech() { if (window.speechSynthesis) window.speechSynthesis.cancel(); }
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 
-// ── 효과음 ──
+// ── 효과음 (GitHub Pages HTTPS 자동재생 정책 대응) ──
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+// 사용자 첫 클릭 시 AudioContext 활성화 (브라우저 autoplay 정책 우회)
+document.addEventListener('click', () => {
+  try { const c = getAudioCtx(); if (c.state === 'suspended') c.resume(); } catch(e) {}
+});
+
 function playCorrectSound() {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  function chime(freq, startTime, duration) {
-    [1, 2.756, 5.404].forEach((mult, i) => {
-      const osc = ctx.createOscillator(), gain = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = freq * mult;
-      const vol = [0.6, 0.25, 0.1][i];
-      const dur = duration * [1, 0.6, 0.3][i];
-      gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
-      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + startTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + dur);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + startTime); osc.stop(ctx.currentTime + startTime + dur);
-    });
+  const ctx = getAudioCtx();
+  function doPlay() {
+    function chime(freq, startTime, duration) {
+      [1, 2.756, 5.404].forEach((mult, i) => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = freq * mult;
+        const vol = [0.6, 0.25, 0.1][i];
+        const dur = duration * [1, 0.6, 0.3][i];
+        gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+        gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + startTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + dur);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + startTime); osc.stop(ctx.currentTime + startTime + dur);
+      });
+    }
+    chime(1047, 0.0, 1.2); chime(880, 0.35, 1.0); chime(784, 0.70, 1.4);
   }
-  chime(1047, 0.0, 1.2); chime(880, 0.35, 1.0); chime(784, 0.70, 1.4);
+  if (ctx.state === 'suspended') ctx.resume().then(doPlay); else doPlay();
 }
 function playWrongSound() {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = ctx.createOscillator(), gain = ctx.createGain();
-  osc.type = 'sine'; osc.frequency.value = 220;
-  gain.gain.setValueAtTime(0.4, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-  osc.connect(gain); gain.connect(ctx.destination);
-  osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.65);
+  const ctx = getAudioCtx();
+  function doPlay() {
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = 220;
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.65);
+  }
+  if (ctx.state === 'suspended') ctx.resume().then(doPlay); else doPlay();
 }
 function speakMsg(msg, pitch) {
   if (!window.speechSynthesis) return;
