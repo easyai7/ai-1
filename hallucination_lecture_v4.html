@@ -1,10 +1,15 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0">
 <title>AI 할루시네이션 강의 복습</title>
+<meta name="theme-color" content="#1e293b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="AI강의">
+<link rel="manifest" href="manifest_ai.json">
 <style>
 :root {
   --bg: #fafaf8;
@@ -435,6 +440,20 @@ body {
 </style>
 </head>
 <body>
+
+<!-- PWA 설치 안내 배너 (Android Chrome) -->
+<div id="install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#1e293b; color:#fff; padding:0.9rem 1.2rem; z-index:999; align-items:center; gap:0.8rem; box-shadow:0 -4px 16px rgba(0,0,0,0.3);">
+  <div style="flex:1; font-size:15px; font-weight:800;">📲 홈 화면에 추가하면 앱처럼 바로 열립니다!</div>
+  <button onclick="installApp()" style="background:#f59e0b;color:#1a1200;border:none;border-radius:8px;padding:0.5rem 1rem;font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0;">추가</button>
+  <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;flex-shrink:0;color:#fff;">✕</button>
+</div>
+
+<!-- PWA 설치 안내 배너 (iOS Safari) -->
+<div id="ios-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#1e293b; color:#fff; padding:0.9rem 1.2rem; z-index:999; box-shadow:0 -4px 16px rgba(0,0,0,0.3);">
+  <div style="font-size:15px; font-weight:800; margin-bottom:0.4rem;">📲 홈 화면에 추가하는 방법</div>
+  <div style="font-size:13px; line-height:1.7;">① 하단 <strong>□↑ 공유 버튼</strong> 탭<br>② <strong>「홈 화면에 추가」</strong> 선택</div>
+  <button onclick="document.getElementById('ios-banner').style.display='none'" style="position:absolute;top:0.7rem;right:0.9rem;background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">✕</button>
+</div>
 
 <!-- 헤더 -->
 <div class="hero">
@@ -1384,6 +1403,43 @@ if (!('speechSynthesis' in window)) {
     btn.title = '이 브라우저에서는 음성이 지원되지 않습니다';
   });
   document.querySelector('.tts-global').innerHTML = '<span style="color:#e06000;font-weight:700;">⚠️ 이 기기에서는 음성 기능이 지원되지 않습니다</span>';
+}
+</script>
+
+<script>
+// PWA 서비스워커 등록
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/ai-1/sw_ai.js').catch(() => {});
+  });
+}
+
+// Android Chrome 설치 배너
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').style.display = 'flex';
+});
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('install-banner').style.display = 'none';
+  });
+}
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').style.display = 'none';
+});
+
+// iOS Safari 설치 배너
+const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const isInStandaloneMode = window.navigator.standalone;
+if (isIOSDevice && !isInStandaloneMode) {
+  setTimeout(() => {
+    document.getElementById('ios-banner').style.display = 'block';
+  }, 2000);
 }
 </script>
 </body>

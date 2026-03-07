@@ -1,0 +1,26 @@
+{
+  "name": "AI 할루시네이션 강의 복습",
+  "short_name": "AI강의",
+  "description": "AI 할루시네이션 강의 복습 앱",
+  "start_url": "/ai-1/hallucination_lecture_v4.html",
+  "scope": "/ai-1/",
+  "display": "standalone",
+  "background_color": "#1e293b",
+  "theme_color": "#1e293b",
+  "orientation": "portrait",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon_ai-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon_ai-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
