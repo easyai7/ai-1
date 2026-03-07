@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -1152,7 +1153,9 @@ let currentBtn = null;
 let currentUtterance = null;
 let ttsSpeed = 1.0;
 let resumeTimer = null;          // iOS keepalive 타이머
-let ttsEnabled = 'speechSynthesis' in window;
+// 페이지 로드 시점이 아니라 버튼 클릭 시점에 매번 체크
+// HTTPS에서 첫 터치 전까지 speechSynthesis가 없는 경우 대응
+let ttsEnabled = true; // 일단 허용, speak() 안에서 재확인
 
 // ── iOS/Android Chrome TTS 자동중단 방지 keepalive ──
 // speechSynthesis는 약 14~15초 후 자동으로 pause 상태가 됨
@@ -1189,8 +1192,9 @@ function setSpeed(rate) {
 }
 
 function speak(btn, text) {
-  if (!ttsEnabled) {
-    alert('이 기기에서는 음성 읽기가 지원되지 않습니다.');
+  // 클릭 시점에 재확인 — HTTPS에서 첫 터치 전 speechSynthesis 미존재 대응
+  if (!('speechSynthesis' in window)) {
+    alert('이 기기 또는 브라우저에서는 음성이 지원되지 않습니다.\nChrome 브라우저로 열어주세요.');
     return;
   }
 
@@ -1325,7 +1329,7 @@ function checkKoVoice() {
     if (banner) banner.style.display = 'block';
   }
 }
-if (ttsEnabled) {
+if ('speechSynthesis' in window) {
   speechSynthesis.getVoices();
   speechSynthesis.onvoiceschanged = () => {
     speechSynthesis.getVoices();
@@ -1372,7 +1376,7 @@ function answerQuiz(btn, isCorrect) {
 }
 
 // TTS 미지원 안내
-if (!ttsEnabled) {
+if (!('speechSynthesis' in window)) {
   document.querySelectorAll('.tts-btn').forEach(btn => {
     btn.style.background = '#eee';
     btn.style.color = '#aaa';
