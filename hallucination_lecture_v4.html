@@ -441,6 +441,20 @@ body {
 </head>
 <body>
 
+<!-- WebView TTS 활성화용 시작 팝업 -->
+<div id="start-overlay" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:20px; padding:2rem 1.5rem; max-width:320px; width:90%; text-align:center;">
+    <div style="font-size:48px; margin-bottom:0.8rem;">🤖</div>
+    <div style="font-size:20px; font-weight:900; color:#1e293b; margin-bottom:0.6rem;">AI 할루시네이션 강의</div>
+    <div style="font-size:15px; color:#64748b; margin-bottom:1.5rem; line-height:1.7;">
+      음성 강의 복습 앱입니다.<br>아래 버튼을 눌러 시작하세요.
+    </div>
+    <button onclick="startApp()" style="background:#f59e0b; color:#1a1200; border:none; border-radius:12px; padding:1rem 2rem; font-size:18px; font-weight:900; cursor:pointer; width:100%;">
+      ▶ 시작하기
+    </button>
+  </div>
+</div>
+
 <!-- PWA 설치 안내 배너 (Android Chrome) -->
 <div id="install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#1e293b; color:#fff; padding:0.9rem 1.2rem; z-index:999; align-items:center; gap:0.8rem; box-shadow:0 -4px 16px rgba(0,0,0,0.3);">
   <div style="flex:1; font-size:15px; font-weight:800;">📲 홈 화면에 추가하면 앱처럼 바로 열립니다!</div>
@@ -1407,6 +1421,19 @@ if (!('speechSynthesis' in window)) {
 </script>
 
 <script>
+// WebView TTS 활성화 — 사용자 터치 후 speechSynthesis 언락
+function startApp() {
+  // 빈 utterance로 TTS 엔진 강제 활성화
+  if ('speechSynthesis' in window) {
+    const u = new SpeechSynthesisUtterance('');
+    speechSynthesis.speak(u);
+    speechSynthesis.cancel();
+  }
+  // 팝업 닫기
+  const overlay = document.getElementById('start-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
 // PWA 서비스워커 등록
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
