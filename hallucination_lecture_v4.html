@@ -5,6 +5,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0">
 <title>AI 할루시네이션 강의 복습</title>
+<script>
+// 카카오톡 인앱 브라우저 감지 → 즉시 외부 브라우저 안내
+(function() {
+  var ua = navigator.userAgent || '';
+  var isKakao = /KAKAOTALK/i.test(ua);
+  if (isKakao) {
+    document.addEventListener('DOMContentLoaded', function() {
+      var banner = document.createElement('div');
+      banner.id = 'kakao-banner';
+      banner.innerHTML = [
+        '<div style="background:#e06000;color:#fff;padding:1rem 1.2rem;font-size:17px;line-height:1.6;text-align:center;position:sticky;top:0;z-index:9999;">',
+        '<strong>⚠️ 카카오톡 브라우저에서는 음성 읽기가 안 될 수 있어요</strong><br>',
+        '아래 방법으로 열어주세요:<br>',
+        '<span style="font-size:15px;">화면 오른쪽 위 <strong>⋮ 메뉴 → 다른 브라우저로 열기</strong> 선택</span><br>',
+        '<button onclick="document.getElementById(\'kakao-banner\').style.display=\'none\'" ',
+        'style="margin-top:0.5rem;background:#fff;color:#e06000;border:none;border-radius:8px;padding:0.4rem 1.2rem;font-size:15px;font-weight:700;cursor:pointer;">',
+        '닫기</button>',
+        '</div>'
+      ].join('');
+      document.body.insertBefore(banner, document.body.firstChild);
+    });
+  }
+})();
+</script>
 <style>
 :root {
   --bg: #fafaf8;
@@ -1181,32 +1205,45 @@ body {
 </div>
 
 <script>
-// ── TTS 엔진 (v3 — iOS 중단 버그 수정) ──
-let currentBtn = null;
-let currentUtterance = null;
-let ttsSpeed = 1.0;
-let resumeTimer = null;          // iOS keepalive 타이머
-let ttsEnabled = 'speechSynthesis' in window;
+// ── TTS 엔진 (v4 — 멀티 브라우저 호환: iOS Safari, 삼성인터넷, 카카오톡) ──
+var currentBtn = null;
+var currentUtterance = null;
+var ttsSpeed = 1.0;
+var resumeTimer = null;
+var ttsReady = false; // 사용자 제스처 후 초기화 여부
+var ttsEnabled = 'speechSynthesis' in window;
 
-// ── iOS/Android Chrome TTS 자동중단 방지 keepalive ──
-// speechSynthesis는 약 14~15초 후 자동으로 pause 상태가 됨
-// 250ms마다 speaking 상태를 확인하고 paused 시 resume() 호출
+// ── keepalive: iOS/Android 14초 자동중단 방지 ──
 function startKeepAlive() {
   stopKeepAlive();
-  resumeTimer = setInterval(() => {
+  resumeTimer = setInterval(function() {
+    if (!window.speechSynthesis) return;
     if (!speechSynthesis.speaking) return;
-    if (speechSynthesis.paused) {
-      speechSynthesis.resume();
-    }
+    if (speechSynthesis.paused) speechSynthesis.resume();
   }, 250);
 }
 function stopKeepAlive() {
   if (resumeTimer) { clearInterval(resumeTimer); resumeTimer = null; }
 }
 
+// ── 사용자 첫 터치 시 음성 초기화 (iOS Safari 필수) ──
+function initTTSOnGesture() {
+  if (ttsReady || !ttsEnabled) return;
+  ttsReady = true;
+  try {
+    // 무음 utterance로 음성 엔진 깨우기
+    var silent = new SpeechSynthesisUtterance('');
+    silent.volume = 0;
+    speechSynthesis.speak(silent);
+    speechSynthesis.cancel();
+  } catch(e) {}
+}
+document.addEventListener('touchstart', initTTSOnGesture, { once: true });
+document.addEventListener('click', initTTSOnGesture, { once: true });
+
 function setSpeed(rate) {
   ttsSpeed = rate;
-  document.querySelectorAll('.speed-btn').forEach(b => {
+  document.querySelectorAll('.speed-btn').forEach(function(b) {
     b.classList.remove('active');
     if ((rate === 0.7 && b.textContent === '느리게') ||
         (rate === 1.0 && b.textContent === '보통') ||
@@ -1215,16 +1252,16 @@ function setSpeed(rate) {
     }
   });
   if (currentUtterance && speechSynthesis.speaking) {
-    const lastBtn = currentBtn;
-    const lastText = currentUtterance.text;
+    var lastBtn = currentBtn;
+    var lastText = currentUtterance.text;
     stopTTS();
-    setTimeout(() => speak(lastBtn, lastText), 150);
+    setTimeout(function() { speak(lastBtn, lastText); }, 200);
   }
 }
 
 function speak(btn, text) {
   if (!ttsEnabled) {
-    alert('이 기기에서는 음성 읽기가 지원되지 않습니다.');
+    alert('이 기기/브라우저에서는 음성 읽기가 지원되지 않습니다.\n크롬 브라우저로 열어주세요.');
     return;
   }
 
@@ -1240,68 +1277,99 @@ function speak(btn, text) {
   btn.classList.add('playing');
   btn.querySelector('.icon').textContent = '⏸';
 
-  const nowPlaying = document.getElementById('nowPlaying');
-  const fp = document.getElementById('floatingPlayer');
-  nowPlaying.classList.add('show');
-  fp.classList.add('show');
+  var nowPlaying = document.getElementById('nowPlaying');
+  var fp = document.getElementById('floatingPlayer');
+  if (nowPlaying) nowPlaying.classList.add('show');
+  if (fp) fp.classList.add('show');
 
-  // ── 핵심 전략: 텍스트 전체를 단 하나의 utterance로 읽기
-  // 분리 자체를 없애면 마지막 부분이 잘릴 이유가 없음
-  // 단, iOS 14초 자동중단 버그 때문에 keepalive로 보완
-  const activeBtn = btn;
+  var activeBtn = btn;
 
   function doSpeak(voices) {
-    const koVoice = voices.find(v => v.lang === 'ko-KR') || voices.find(v => v.lang.startsWith('ko'));
+    var koVoice = null;
+    for (var i = 0; i < voices.length; i++) {
+      if (voices[i].lang === 'ko-KR') { koVoice = voices[i]; break; }
+    }
+    if (!koVoice) {
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].lang && voices[i].lang.indexOf('ko') === 0) { koVoice = voices[i]; break; }
+      }
+    }
 
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'ko-KR';
-    utt.rate = ttsSpeed;
-    utt.pitch = 1.0;
-    utt.volume = 1.0;
-    if (koVoice) utt.voice = koVoice;
-    currentUtterance = utt;
+    // iOS Safari: 긴 텍스트는 200자 단위로 분할해서 읽기 (잘림 방지)
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    var chunks = [];
+    if (isIOS && text.length > 200) {
+      var sentences = text.match(/[^。．.!?！？\n]{1,200}[。．.!?！？\n]?/g) || [text];
+      chunks = sentences;
+    } else {
+      chunks = [text];
+    }
 
-    utt.onend = () => {
+    var chunkIndex = 0;
+
+    function speakChunk() {
       if (currentBtn !== activeBtn) return;
-      resetBtn(activeBtn);
-      nowPlaying.classList.remove('show');
-      fp.classList.remove('show');
-      currentBtn = null;
-      stopKeepAlive();
-    };
-    utt.onerror = (e) => {
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      if (currentBtn !== activeBtn) return;
-      resetBtn(activeBtn);
-      nowPlaying.classList.remove('show');
-      fp.classList.remove('show');
-      currentBtn = null;
-      stopKeepAlive();
-    };
+      if (chunkIndex >= chunks.length) {
+        resetBtn(activeBtn);
+        if (nowPlaying) nowPlaying.classList.remove('show');
+        if (fp) fp.classList.remove('show');
+        currentBtn = null;
+        stopKeepAlive();
+        return;
+      }
+      var utt = new SpeechSynthesisUtterance(chunks[chunkIndex]);
+      utt.lang = 'ko-KR';
+      utt.rate = ttsSpeed;
+      utt.pitch = 1.0;
+      utt.volume = 1.0;
+      if (koVoice) utt.voice = koVoice;
+      currentUtterance = utt;
 
-    startKeepAlive();
-    speechSynthesis.speak(utt);
+      utt.onend = function() {
+        if (currentBtn !== activeBtn) return;
+        chunkIndex++;
+        setTimeout(speakChunk, 50);
+      };
+      utt.onerror = function(e) {
+        if (e.error === 'interrupted' || e.error === 'canceled') return;
+        if (currentBtn !== activeBtn) return;
+        resetBtn(activeBtn);
+        if (nowPlaying) nowPlaying.classList.remove('show');
+        if (fp) fp.classList.remove('show');
+        currentBtn = null;
+        stopKeepAlive();
+      };
+
+      startKeepAlive();
+      speechSynthesis.speak(utt);
+    }
+
+    speakChunk();
   }
 
-  // 목소리 로드 보장 후 발화
-  const voices = speechSynthesis.getVoices();
-  if (voices.length > 0) {
-    doSpeak(voices);
-  } else {
-    let fired = false;
-    const handler = () => {
-      speechSynthesis.removeEventListener('voiceschanged', handler);
+  // 목소리 로드 보장 (삼성인터넷/Safari 타이밍 이슈 대응)
+  function loadVoicesAndSpeak() {
+    var voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      doSpeak(voices);
+      return;
+    }
+    var fired = false;
+    var handler = function() {
+      if (fired) return;
+      fired = true;
+      try { speechSynthesis.removeEventListener('voiceschanged', handler); } catch(e) {}
+      doSpeak(speechSynthesis.getVoices());
+    };
+    try { speechSynthesis.addEventListener('voiceschanged', handler); } catch(e) {}
+    setTimeout(function() {
       if (fired) return;
       fired = true;
       doSpeak(speechSynthesis.getVoices());
-    };
-    speechSynthesis.addEventListener('voiceschanged', handler);
-    setTimeout(() => {
-      if (fired) return;
-      fired = true;
-      doSpeak(speechSynthesis.getVoices());
-    }, 500);
+    }, 1000);
   }
+
+  loadVoicesAndSpeak();
 }
 
 function resetBtn(btn) {
@@ -1312,45 +1380,39 @@ function resetBtn(btn) {
 
 function stopTTS() {
   stopKeepAlive();
-  speechSynthesis.cancel();
+  if (window.speechSynthesis) speechSynthesis.cancel();
   if (currentBtn) resetBtn(currentBtn);
   currentBtn = null;
   currentUtterance = null;
-  const np = document.getElementById('nowPlaying');
-  const fp = document.getElementById('floatingPlayer');
+  var np = document.getElementById('nowPlaying');
+  var fp = document.getElementById('floatingPlayer');
   if (np) np.classList.remove('show');
   if (fp) fp.classList.remove('show');
 }
 
-// iOS 음성 로드 대기
-if (ttsEnabled) {
-  speechSynthesis.getVoices();
-  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
-}
-
 // ── 탭 전환 ──
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
     stopTTS();
-    // 안내 문구 숨기기
-    const hint = document.getElementById('tabHint');
+    var hint = document.getElementById('tabHint');
     if (hint) hint.style.display = 'none';
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-    window.scrollTo({ top: document.querySelector('.tab-nav').offsetTop - 1, behavior: 'smooth' });
+    var tabNav = document.querySelector('.tab-nav');
+    if (tabNav) window.scrollTo({ top: tabNav.offsetTop - 1, behavior: 'smooth' });
   });
 });
 
 // ── 퀴즈 ──
 function answerQuiz(btn, isCorrect) {
-  const card = btn.closest('.quiz-card');
+  var card = btn.closest('.quiz-card');
   if (card.dataset.answered) return;
   card.dataset.answered = '1';
-  const opts = card.querySelectorAll('.quiz-opt');
-  opts.forEach(o => o.disabled = true);
-  const resultEl = card.querySelector('.quiz-result');
+  var opts = card.querySelectorAll('.quiz-opt');
+  opts.forEach(function(o) { o.disabled = true; });
+  var resultEl = card.querySelector('.quiz-result');
   if (isCorrect) {
     btn.classList.add('correct');
     resultEl.className = 'quiz-result ok';
@@ -1359,21 +1421,22 @@ function answerQuiz(btn, isCorrect) {
     btn.classList.add('wrong');
     resultEl.className = 'quiz-result ng';
     resultEl.textContent = '❌ 오답입니다. 정답을 확인하세요.';
-    opts.forEach(o => {
-      if (o.onclick.toString().includes('true')) o.classList.add('correct');
+    opts.forEach(function(o) {
+      if (o.onclick && o.onclick.toString().indexOf('true') !== -1) o.classList.add('correct');
     });
   }
 }
 
 // TTS 미지원 안내
 if (!ttsEnabled) {
-  document.querySelectorAll('.tts-btn').forEach(btn => {
+  document.querySelectorAll('.tts-btn').forEach(function(btn) {
     btn.style.background = '#eee';
     btn.style.color = '#aaa';
     btn.style.borderColor = '#ddd';
     btn.title = '이 브라우저에서는 음성이 지원되지 않습니다';
   });
-  document.querySelector('.tts-global').innerHTML = '<span style="color:#e06000;font-weight:700;">⚠️ 이 기기에서는 음성 기능이 지원되지 않습니다</span>';
+  var ttsGlobal = document.querySelector('.tts-global');
+  if (ttsGlobal) ttsGlobal.innerHTML = '<span style="color:#e06000;font-weight:700;">⚠️ 이 브라우저에서는 음성 기능이 지원되지 않습니다.<br>크롬(Chrome) 브라우저로 열어주세요.</span>';
 }
 </script>
 </body>
