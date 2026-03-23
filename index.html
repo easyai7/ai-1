@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -11,6 +10,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="AI강의">
 <link rel="manifest" href="manifest_ai.json">
+<!-- OG / 카카오톡 미리보기 -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="AI 할루시네이션 강의 복습">
+<meta property="og:description" content="AI가 왜 거짓말을 할까? 할루시네이션의 원인과 대처법을 배웁니다.">
+<meta property="og:image" content="https://easyai7.github.io/ai-1/hallucination.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://easyai7.github.io/ai-1/">
+<meta property="og:locale" content="ko_KR">
 <style>
 :root {
   --bg: #fafaf8;
@@ -442,38 +450,17 @@ body {
 </head>
 <body>
 
-<!-- WebView 감지 안내 팝업 -->
+<!-- WebView TTS 활성화용 시작 팝업 -->
 <div id="start-overlay" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center;">
   <div style="background:#fff; border-radius:20px; padding:2rem 1.5rem; max-width:320px; width:90%; text-align:center;">
     <div style="font-size:48px; margin-bottom:0.8rem;">🤖</div>
     <div style="font-size:20px; font-weight:900; color:#1e293b; margin-bottom:0.6rem;">AI 할루시네이션 강의</div>
-
-    <!-- 일반 브라우저(Chrome)용 -->
-    <div id="overlay-normal">
-      <div style="font-size:15px; color:#64748b; margin-bottom:1.2rem; line-height:1.7;">
-        음성 강의 복습 앱입니다.<br>아래 버튼을 눌러 시작하세요.
-      </div>
-      <button onclick="startApp()" style="background:#f59e0b; color:#1a1200; border:none; border-radius:12px; padding:1rem 2rem; font-size:18px; font-weight:900; cursor:pointer; width:100%;">
-        ▶ 시작하기
-      </button>
+    <div style="font-size:15px; color:#64748b; margin-bottom:1.5rem; line-height:1.7;">
+      음성 강의 복습 앱입니다.<br>아래 버튼을 눌러 시작하세요.
     </div>
-
-    <!-- WebView(카카오톡 등)용 -->
-    <div id="overlay-webview" style="display:none;">
-      <div style="background:#fee2e2; border-radius:10px; padding:0.8rem 1rem; margin-bottom:1rem; font-size:14px; color:#991b1b; font-weight:700;">
-        ⚠️ 카카오톡 안에서는 소리가 지원되지 않습니다
-      </div>
-      <div style="background:#fef3c7; border-radius:10px; padding:1rem; font-size:14px; color:#92400e; line-height:2; text-align:left;">
-        <strong>📱 Chrome으로 여는 방법:</strong><br>
-        ① 아래 <strong>다른 앱으로 공유</strong> 버튼 탭<br>
-        ② 오른쪽 끝 <strong>더보기</strong> 탭<br>
-        ③ <strong>Chrome</strong> 선택
-      </div>
-      <button onclick="shareUrl()" style="background:#1e293b; color:#fff; border:none; border-radius:12px; padding:1rem 2rem; font-size:16px; font-weight:900; cursor:pointer; width:100%; margin-top:1rem;">
-        📤 다른 앱으로 공유
-      </button>
-    </div>
-
+    <button onclick="startApp()" style="background:#f59e0b; color:#1a1200; border:none; border-radius:12px; padding:1rem 2rem; font-size:18px; font-weight:900; cursor:pointer; width:100%;">
+      ▶ 시작하기
+    </button>
   </div>
 </div>
 
@@ -1203,6 +1190,31 @@ body {
 </div>
 
 <script>
+// ── 카카오톡 인앱브라우저 → 크롬 강제열기 ──
+(function() {
+  var ua = navigator.userAgent || '';
+  var isKakao = /KAKAOTALK/i.test(ua);
+  var isAndroid = /Android/i.test(ua);
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+  if (isKakao) {
+    var url = location.href;
+    if (isAndroid) {
+      // Android: intent 스킴으로 크롬 강제실행
+      var intent = 'intent://' + url.replace(/https?:\/\//, '') +
+        '#Intent;scheme=https;package=com.android.chrome;end';
+      location.href = intent;
+    } else if (isIOS) {
+      // iOS: 사파리로 열기 유도 (크롬 직접 강제 불가)
+      var msg = document.createElement('div');
+      msg.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:#e06000;color:#fff;' +
+        'text-align:center;padding:14px;font-size:16px;z-index:9999;';
+      msg.innerHTML = '⚠️ TTS 음성 기능을 사용하려면 <b>Safari</b>로 열어주세요.<br>' +
+        '<small>우측 하단 ··· 메뉴 → "기본 브라우저로 열기"</small>';
+      document.body.appendChild(msg);
+    }
+  }
+})();
+
 // ── TTS 엔진 (v3 — iOS 중단 버그 수정) ──
 let currentBtn = null;
 let currentUtterance = null;
@@ -1443,38 +1455,17 @@ if (!('speechSynthesis' in window)) {
 </script>
 
 <script>
-// WebView 감지
-const isWebView = /KAKAO|NAVER|Line|Instagram|FB_IAB|wv\)/.test(navigator.userAgent) ||
-                  (!/Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent));
-
-// 페이지 로드 시 WebView 여부에 따라 팝업 내용 전환
-window.addEventListener('DOMContentLoaded', () => {
-  if (isWebView) {
-    document.getElementById('overlay-normal').style.display = 'none';
-    document.getElementById('overlay-webview').style.display = 'block';
-  }
-});
-
+// WebView TTS 활성화 — 사용자 터치 후 speechSynthesis 언락
 function startApp() {
+  // 빈 utterance로 TTS 엔진 강제 활성화
   if ('speechSynthesis' in window) {
     const u = new SpeechSynthesisUtterance('');
     speechSynthesis.speak(u);
     speechSynthesis.cancel();
   }
+  // 팝업 닫기
   const overlay = document.getElementById('start-overlay');
   if (overlay) overlay.style.display = 'none';
-}
-
-function shareUrl() {
-  const url = window.location.href;
-  if (navigator.share) {
-    navigator.share({ title: 'AI 할루시네이션 강의', url: url });
-  } else {
-    // 공유 API 없으면 URL 복사
-    navigator.clipboard.writeText(url).then(() => {
-      alert('링크가 복사되었습니다!\nChrome 주소창에 붙여넣어 주세요.');
-    });
-  }
 }
 
 // PWA 서비스워커 등록
